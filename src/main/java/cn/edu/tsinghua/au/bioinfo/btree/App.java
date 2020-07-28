@@ -8,6 +8,7 @@ public class App {
 
         try {
             BTreeSearcher btree = new BTreeSearcher("E://Onedrive//code//btree_data");
+            System.out.println(btree.getColumnInfo());
         } catch (BTreeException e) {
             e.printStackTrace();
         }

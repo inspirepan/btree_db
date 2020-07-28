@@ -48,6 +48,7 @@ public class BTreeSearcher implements IBTreeSearcher {
         File[] files = dir.listFiles();
         for (File file : files) {
             String column = file.getName();
+            System.out.println("recovering "+column);
             BTree bTree = new BTree(file);
             bTree.init(false);
             bTreeMap.put(column, bTree);
