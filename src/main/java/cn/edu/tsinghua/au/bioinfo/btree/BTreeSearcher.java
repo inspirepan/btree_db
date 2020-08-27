@@ -4,131 +4,149 @@ import btree4j.BTree;
 import btree4j.BTreeException;
 import btree4j.Value;
 import btree4j.indexer.BasicIndexQuery;
-import btree4j.indexer.BasicIndexQuery.IndexConditionANY;
-import btree4j.indexer.BasicIndexQuery.IndexConditionBW;
-import btree4j.indexer.BasicIndexQuery.IndexConditionGT;
-import btree4j.indexer.BasicIndexQuery.IndexConditionLT;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
-public class BTreeSearcher implements IBTreeSearcher {
+@Component
+public class BtreeSearcher implements IBTreeSearcher {
 
-    private final int THREAD_NUM = 64;
+    private final File dirFile;
+    private final Map<String, BTree> map;
 
-    private Map<String, BTree> bTreeMap = new HashMap<String, BTree>();
-    private String dirPath;
-    private File dirFile;
 
-    /* 构造函数, 参数为路径 */
-    public BTreeSearcher(String dirPath) throws BTreeException {
-        this.dirPath = dirPath;
-        this.dirFile = new File(dirPath);
-        if (dirFile.exists()) {
-            recover(dirFile);
-        } else {
-            dirFile.mkdirs();
-        }
+    public BtreeSearcher(@Autowired BtreeDb bTreeDb) {
+        this.map = bTreeDb.getBtreeMap();
+        this.dirFile = bTreeDb.getDirFile();
     }
 
-    /* 构造函数中调用, 对File对象的路径下所有的文件, 添加到bTreeMap中,
-    column为文件名, 以及以file构造的BTree */
-    private void recover(File dir) throws BTreeException {
-        File[] files = dir.listFiles();
-        for (File file : files) {
-            String column = file.getName();
-            System.out.println("recovering "+column);
-            BTree bTree = new BTree(file);
-            bTree.init(false);
-            bTreeMap.put(column, bTree);
-        }
-    }
-
-    /* 关闭 */
+    /**
+     * 关闭所有BTree
+     */
+    @Override
     public void close() throws InterruptedException {
-        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_NUM);
-        for (BTree bTree : bTreeMap.values()) {
-            SingleBTreeCloser singleBTreeCloser = new SingleBTreeCloser(bTree);
-            executorService.execute(singleBTreeCloser);
+        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+                1L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(3),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
+        for (BTree bTree : map.values()) {
+            SingleBtreeCloser singleBtreeCloser = new SingleBtreeCloser(bTree);
+            executorService.execute(singleBtreeCloser);
         }
         executorService.shutdown();
         executorService.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    /* 添加一个Column, 需要先有对应的文件 */
+    /**
+     * 添加一个column
+     *
+     * @param column 为dirFile路径下，需要添加的Btree文件名
+     */
+    @Override
     public void addColumn(String column) throws BTreeException {
         File file = new File(dirFile, column);
         BTree bTree = new BTree(file);
         bTree.init(false);
-        bTreeMap.put(column, bTree);
+        map.put(column, bTree);
     }
 
-    /* 返回所有Column的名称列表 */
+    /**
+     * 返回所有Column的名称列表
+     */
+    @Override
     public List<String> getColumnInfo() {
-        return new ArrayList<String>(bTreeMap.keySet());
+        return new ArrayList<>(map.keySet());
     }
 
-    /* 添加一行数据, 输入参数为ID, 需要添加的列名, 对应的值, 长度 */
-    public void insert(long ID, String[] columns, double[] values, int len)
-            throws InterruptedException {
-        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_NUM);
+    /**
+     * 添加一行数据
+     *
+     * @param id      即对应的行
+     * @param columns 数据对应的几列，即单独的BTree
+     * @param values  数据，与columns一一对应
+     * @param len     数据长度
+     */
+    @Override
+    public void insert(long id, String[] columns, double[] values, int len) throws InterruptedException {
+        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+                1L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(3),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < len; i++) {
-            if (!bTreeMap.containsKey(columns[i])) {
+            if (!map.containsKey(columns[i])) {
                 continue;
             }
-            BTree bTree = bTreeMap.get(columns[i]);
-            SingleBTreeInserter singleBTreeInserter = new SingleBTreeInserter(bTree, new Value((long) values[i]), ID);
-            executorService.execute(singleBTreeInserter);
+            BTree bTree = map.get(columns[i]);
+            SingleBtreeInserter singleBtreeInserter = new SingleBtreeInserter(bTree, new Value((long) values[i]), id);
+            executorService.execute(singleBtreeInserter);
         }
         executorService.shutdown();
         executorService.awaitTermination(1, TimeUnit.HOURS);
     }
 
-
-    /* 刷新 */
+    /**
+     * 刷新
+     */
     public void flush() throws InterruptedException {
-        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_NUM);
-        for (BTree bTree : bTreeMap.values()) {
-            SingleBTreeFlusher singleBTreeFlusher = new SingleBTreeFlusher(bTree);
-            executorService.execute(singleBTreeFlusher);
+        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+                1L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(3),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
+        for (BTree bTree : map.values()) {
+            SingleBtreeFlusher singleBtreeFlusher = new SingleBtreeFlusher(bTree);
+            executorService.execute(singleBtreeFlusher);
         }
         executorService.shutdown();
         executorService.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    /* 搜索全部范围 */
+    /**
+     * 搜索全部ID
+     *
+     * @param columns    指定若干个BTree
+     * @param conditions 与上述BTree一一对应的条件
+     * @param len        指定的BTree的数量
+     * @return 返回满足所有条件的ID
+     */
+    @Override
     public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len)
             throws ExecutionException, InterruptedException, BTreeException {
-        Set<Long> resultSet = new HashSet<Long>();
+        Set<Long> resultSet = new HashSet<>();
         return rangeSearch(columns, conditions, len, resultSet);
     }
 
-    /* 重载, 搜索指定ID范围 */
-    public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len,
-                                 Set<Long> candidates) throws ExecutionException, InterruptedException, BTreeException {
+    /**
+     * 搜索指定ID
+     *
+     * @param columns    指定若干个BTree
+     * @param conditions 与上述BTree一一对应的条件
+     * @param len        指定的BTree的数量
+     * @param candidates 指定的ID
+     * @return 返回满足所有条件的ID
+     */
+    @Override
+    public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len, Set<Long> candidates)
+            throws ExecutionException, InterruptedException, BTreeException {
         Future<Set<Long>>[] futures = new Future[len];
-        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_NUM);
+        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+                1L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(3),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < len; i++) {
-            BTree bTree = bTreeMap.get(columns[i]);
+            BTree bTree = map.get(columns[i]);
             if (bTree == null) {
                 throw new BTreeException();
             }
-
-            SingleBTreeSearcher singleSearcher = new SingleBTreeSearcher(bTree, conditions[i]);
+            SingleBtreeSearcher singleSearcher = new SingleBtreeSearcher(bTree, conditions[i]);
             futures[i] = executorService.submit(singleSearcher);
         }
-
         for (int i = 0; i < len; i++) {
             // candidates为空对应重载的搜索全部范围
             if (candidates.isEmpty()) {
@@ -144,27 +162,41 @@ public class BTreeSearcher implements IBTreeSearcher {
         return candidates;
     }
 
-    /* 按 ID 删除行 */
-    public void delete(long ID) throws BTreeException {
-        for (BTree bTree : bTreeMap.values()) {
-            bTree.removeValue(new Value(ID));
+    /**
+     * 按ID删除行
+     *
+     * @param id 指定的ID
+     */
+    @Override
+    public void delete(long id) throws BTreeException {
+        for (BTree bTree : map.values()) {
+            bTree.removeValue(new Value(id));
         }
     }
 
-    public void update(long ID, String columnName, double newV) throws BTreeException {
-        BTree bTree = bTreeMap.get(columnName);
+    /**
+     * 更新指定行列的数据
+     *
+     * @param id         指定ID（行）
+     * @param columnName 指定BTree（列）
+     * @param newV       新的值
+     */
+
+    @Override
+    public void update(long id, String columnName, double newV) throws BTreeException {
+        BTree bTree = map.get(columnName);
         if (bTree == null) {
             throw new BTreeException("No such column.");
         }
 
-        bTree.removeValue(new Value(ID));
-        bTree.addValue(new Value((long) newV), ID);
+        bTree.removeValue(new Value(id));
+        bTree.addValue(new Value((long) newV), id);
     }
 
-    public Set<Long> getAllIDs() throws BTreeException {
+    public Set<Long> getAllIds() throws BTreeException {
         Set<Long> idSet = new HashSet<Long>();
-        for (BTree bTree : bTreeMap.values()) {
-//            idSet.addAll(bTree.searchSet(new IndexConditionANY())); 添加这个bTree中的所有ID
+        for (BTree bTree : map.values()) {
+//             idSet.addAll(bTree.searchSet(new IndexConditionANY())); 添加这个bTree中的所有ID
         }
         return idSet;
     }
