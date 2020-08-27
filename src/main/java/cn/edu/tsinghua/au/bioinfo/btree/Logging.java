@@ -17,7 +17,8 @@ public class Logging {
 
     @Before("@annotation(loggingPoint)")
     public void mysqlLogging(LoggingPoint loggingPoint) {
-        log.info("[mysql] start " + loggingPoint.value());
+        log.error("[mysql] " + loggingPoint.value());
+        System.out.println("[mysql] " + loggingPoint.value());
     }
 
 }

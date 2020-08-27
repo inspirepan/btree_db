@@ -1,17 +1,15 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
+import java.util.List;
 
 /**
  * @author panjx
@@ -19,7 +17,8 @@ import javax.sql.DataSource;
 
 @Configuration
 @ComponentScan
-@PropertySource("jdbc.properties")
+@PropertySource("/btree.properties")
+@EnableAspectJAutoProxy
 public class AppConfig {
     @Value("${jdbc.url}")
     String jdbcUrl;
@@ -29,6 +28,9 @@ public class AppConfig {
 
     @Value("${jdbc.password}")
     String jdbcPassword;
+
+    @Value("${btree.path}")
+    String dirPath;
 
     @Bean
     DataSource createDataSource() {
@@ -47,8 +49,18 @@ public class AppConfig {
         return new JdbcTemplate(dataSource);
     }
 
+    @Bean
+    BtreeDb createBtree() {
+        return new BtreeDb(dirPath);
+    }
+
     public static void main(String[] args) {
+        ApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+        MysqlDb mysqlDb = context.getBean(MysqlDb.class);
 
-
+        mysqlDb.addRow(41,
+                new String[]{"label1", "label2", "label3", "label4"}, List.of("K cell", "CD12+", "x cell", "2", "34"));
+        mysqlDb.head();
+        System.out.println(mysqlDb.getBiggestId());
     }
 }
