@@ -53,7 +53,7 @@ public class MysqlDb {
                 for (int i = 1; i <= count; i++) {
                     System.out.format("%-14s", rs.getString(i));
                 }
-                System.out.println("");
+                System.out.println();
             }
             System.out.println("-".repeat(count * 14));
             return null;
