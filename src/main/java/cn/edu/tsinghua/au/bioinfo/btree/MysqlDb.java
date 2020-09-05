@@ -33,7 +33,8 @@ public class MysqlDb {
 
     public Long getBiggestId() {
         String sql = "SELECT cellid FROM hcaddb.new_table ORDER BY cellid DESC LIMIT 1 OFFSET 0";
-        return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getLong(1));
+        return jdbcTemplate.queryForObject(sql,
+                (rs, rowNum) -> rs.getLong(1));
     }
 
     /**
@@ -42,22 +43,23 @@ public class MysqlDb {
     @LoggingPoint("head")
     public void head() {
         String sql = "SELECT * FROM hcaddb.new_table LIMIT 5 OFFSET 0";
-        jdbcTemplate.query(sql, rs -> {
-            int count = rs.getMetaData().getColumnCount();
-            System.out.println("-".repeat(count * 14));
-            for (int i = 1; i <= count; i++) {
-                System.out.format("%-14s", rs.getMetaData().getColumnName(i));
-            }
-            System.out.println();
-            while (rs.next()) {
-                for (int i = 1; i <= count; i++) {
-                    System.out.format("%-14s", rs.getString(i));
-                }
-                System.out.println();
-            }
-            System.out.println("-".repeat(count * 14));
-            return null;
-        });
+        jdbcTemplate.query(sql,
+                rs -> {
+                    int count = rs.getMetaData().getColumnCount();
+                    System.out.println("-".repeat(count * 14));
+                    for (int i = 1; i <= count; i++) {
+                        System.out.format("%-14s", rs.getMetaData().getColumnName(i));
+                    }
+                    System.out.println();
+                    while (rs.next()) {
+                        for (int i = 1; i <= count; i++) {
+                            System.out.format("%-14s", rs.getString(i));
+                        }
+                        System.out.println();
+                    }
+                    System.out.println("-".repeat(count * 14));
+                    return null;
+                });
     }
 
     /**
@@ -87,19 +89,21 @@ public class MysqlDb {
         candidate.forEach(cellid ->
         {
             String sql = "SELECT * FROM hcaddb.new_table WHERE cellid = ?";
-            jdbcTemplate.query(sql, (ResultSet rs) -> {
-                // 查看当前行是否匹配所有值
-                boolean match = true;
-                for (int i = 0; i < Math.min(columnNames.length, columnValues.length); i++) {
-                    if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match) {
-                    result.add(cellid);
-                }
-            }, cellid);
+            jdbcTemplate.query(sql,
+                    ps -> ps.setLong(1, cellid),
+                    rs -> {
+                        // 查看当前行是否匹配所有值
+                        boolean match = true;
+                        for (int i = 0; i < Math.min(columnNames.length, columnValues.length); i++) {
+                            if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            result.add(cellid);
+                        }
+                    });
         });
         return result;
     }

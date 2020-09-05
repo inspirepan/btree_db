@@ -4,21 +4,24 @@ import btree4j.BTree;
 import btree4j.BTreeException;
 import btree4j.Value;
 
+/**
+ * @author panjx
+ */
 public class SingleBtreeInserter implements Runnable {
-    private Value value;
-    private long ID;
-    private BTree bTree;
+    private final Value value;
+    private final long id;
+    private final BTree bTree;
 
-    public SingleBtreeInserter(BTree bTree, Value value, long ID) {
+    public SingleBtreeInserter(BTree bTree, Value value, long id) {
         this.bTree = bTree;
-        this.ID = ID;
+        this.id = id;
         this.value = value;
     }
 
     @Override
     public void run() {
         try {
-            bTree.addValue(value, ID);
+            bTree.addValue(value, id);
         } catch (BTreeException e) {
             e.printStackTrace();
         }

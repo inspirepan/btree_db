@@ -11,6 +11,10 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
 
+
+/**
+ * @author panjx
+ */
 @Component
 public class BtreeSearcher implements IBTreeSearcher {
 
@@ -28,17 +32,17 @@ public class BtreeSearcher implements IBTreeSearcher {
      */
     @Override
     public void close() throws InterruptedException {
-        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+        ExecutorService es = new ThreadPoolExecutor(5, 10,
                 1L, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(3),
+                new LinkedBlockingQueue<>(8),
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
         for (BTree bTree : map.values()) {
             SingleBtreeCloser singleBtreeCloser = new SingleBtreeCloser(bTree);
-            executorService.execute(singleBtreeCloser);
+            es.execute(singleBtreeCloser);
         }
-        executorService.shutdown();
-        executorService.awaitTermination(1, TimeUnit.HOURS);
+        es.shutdown();
+        es.awaitTermination(1, TimeUnit.HOURS);
     }
 
     /**
@@ -72,9 +76,9 @@ public class BtreeSearcher implements IBTreeSearcher {
      */
     @Override
     public void insert(long id, String[] columns, double[] values, int len) throws InterruptedException {
-        ExecutorService executorService = new ThreadPoolExecutor(2, 5,
+        ExecutorService executorService = new ThreadPoolExecutor(5, 10,
                 1L, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(3),
+                new LinkedBlockingQueue<>(5),
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < len; i++) {
@@ -90,7 +94,7 @@ public class BtreeSearcher implements IBTreeSearcher {
     }
 
     /**
-     * 刷新
+     * 刷新缓存区
      */
     public void flush() throws InterruptedException {
         ExecutorService executorService = new ThreadPoolExecutor(2, 5,
@@ -131,6 +135,7 @@ public class BtreeSearcher implements IBTreeSearcher {
      * @return 返回满足所有条件的ID
      */
     @Override
+    @SuppressWarnings("unchecked")
     public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len, Set<Long> candidates)
             throws ExecutionException, InterruptedException, BTreeException {
         Future<Set<Long>>[] futures = new Future[len];
@@ -148,12 +153,11 @@ public class BtreeSearcher implements IBTreeSearcher {
             futures[i] = executorService.submit(singleSearcher);
         }
         for (int i = 0; i < len; i++) {
-            // candidates为空对应重载的搜索全部范围
             if (candidates.isEmpty()) {
                 // 对于无候选搜索, 先初始化, 添加满足第0个条件的所有ID
                 candidates.addAll(futures[i].get());
             } else {
-                // 保留满足条件i的所有ID
+                // 每一次保留满足条件i的所有ID
                 candidates.retainAll(futures[i].get());
             }
         }
@@ -194,7 +198,7 @@ public class BtreeSearcher implements IBTreeSearcher {
     }
 
     public Set<Long> getAllIds() throws BTreeException {
-        Set<Long> idSet = new HashSet<Long>();
+        Set<Long> idSet = new HashSet<>();
         for (BTree bTree : map.values()) {
 //             idSet.addAll(bTree.searchSet(new IndexConditionANY())); 添加这个bTree中的所有ID
         }
