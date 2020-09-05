@@ -13,7 +13,7 @@ import java.util.*;
 @Component
 public class MysqlDb {
 
-    JdbcTemplate jdbcTemplate;
+    final JdbcTemplate jdbcTemplate;
 
 
     public MysqlDb(@Autowired JdbcTemplate jdbcT) {

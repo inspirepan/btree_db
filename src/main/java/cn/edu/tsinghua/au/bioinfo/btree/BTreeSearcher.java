@@ -1,7 +1,7 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import btree4j.BTree;
 import btree4j.BTreeException;
+import btree4j.BTreeIndex;
 import btree4j.Value;
 import btree4j.indexer.BasicIndexQuery;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,6 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
 
-
 /**
  * @author panjx
  */
@@ -19,8 +18,7 @@ import java.util.concurrent.*;
 public class BtreeSearcher implements IBTreeSearcher {
 
     private final File dirFile;
-    private final Map<String, BTree> map;
-
+    private final Map<String, BTreeIndex> map;
 
     public BtreeSearcher(@Autowired BtreeDb bTreeDb) {
         this.map = bTreeDb.getBtreeMap();
@@ -37,7 +35,7 @@ public class BtreeSearcher implements IBTreeSearcher {
                 new LinkedBlockingQueue<>(8),
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
-        for (BTree bTree : map.values()) {
+        for (BTreeIndex bTree : map.values()) {
             SingleBtreeCloser singleBtreeCloser = new SingleBtreeCloser(bTree);
             es.execute(singleBtreeCloser);
         }
@@ -53,7 +51,7 @@ public class BtreeSearcher implements IBTreeSearcher {
     @Override
     public void addColumn(String column) throws BTreeException {
         File file = new File(dirFile, column);
-        BTree bTree = new BTree(file);
+        BTreeIndex bTree = new BTreeIndex(file);
         bTree.init(false);
         map.put(column, bTree);
     }
@@ -85,8 +83,8 @@ public class BtreeSearcher implements IBTreeSearcher {
             if (!map.containsKey(columns[i])) {
                 continue;
             }
-            BTree bTree = map.get(columns[i]);
-            SingleBtreeInserter singleBtreeInserter = new SingleBtreeInserter(bTree, new Value((long) values[i]), id);
+            BTreeIndex bTree = map.get(columns[i]);
+            SingleBtreeInserter singleBtreeInserter = new SingleBtreeInserter(bTree, id, values[i]);
             executorService.execute(singleBtreeInserter);
         }
         executorService.shutdown();
@@ -94,7 +92,8 @@ public class BtreeSearcher implements IBTreeSearcher {
     }
 
     /**
-     * 刷新缓存区
+     * 将缓存写入文件中
+     * 同时清空缓存
      */
     public void flush() throws InterruptedException {
         ExecutorService executorService = new ThreadPoolExecutor(2, 5,
@@ -102,7 +101,7 @@ public class BtreeSearcher implements IBTreeSearcher {
                 new LinkedBlockingQueue<>(3),
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
-        for (BTree bTree : map.values()) {
+        for (BTreeIndex bTree : map.values()) {
             SingleBtreeFlusher singleBtreeFlusher = new SingleBtreeFlusher(bTree);
             executorService.execute(singleBtreeFlusher);
         }
@@ -145,7 +144,7 @@ public class BtreeSearcher implements IBTreeSearcher {
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < len; i++) {
-            BTree bTree = map.get(columns[i]);
+            BTreeIndex bTree = map.get(columns[i]);
             if (bTree == null) {
                 throw new BTreeException();
             }
@@ -173,8 +172,8 @@ public class BtreeSearcher implements IBTreeSearcher {
      */
     @Override
     public void delete(long id) throws BTreeException {
-        for (BTree bTree : map.values()) {
-            bTree.removeValue(new Value(id));
+        for (BTreeIndex bTree : map.values()) {
+            bTree.remove(new Value(id));
         }
     }
 
@@ -188,19 +187,20 @@ public class BtreeSearcher implements IBTreeSearcher {
 
     @Override
     public void update(long id, String columnName, double newV) throws BTreeException {
-        BTree bTree = map.get(columnName);
+        BTreeIndex bTree = map.get(columnName);
         if (bTree == null) {
             throw new BTreeException("No such column.");
         }
-
-        bTree.removeValue(new Value(id));
+        bTree.remove(new Value(id));
         bTree.addValue(new Value((long) newV), id);
     }
 
     public Set<Long> getAllIds() throws BTreeException {
         Set<Long> idSet = new HashSet<>();
-        for (BTree bTree : map.values()) {
-//             idSet.addAll(bTree.searchSet(new IndexConditionANY())); 添加这个bTree中的所有ID
+        for (BTreeIndex bTree : map.values()) {
+            SingleBtreeCallback sbc = new SingleBtreeCallback();
+            bTree.search(new BasicIndexQuery.IndexConditionANY(), sbc);
+            idSet.addAll(sbc.idSet);
         }
         return idSet;
     }

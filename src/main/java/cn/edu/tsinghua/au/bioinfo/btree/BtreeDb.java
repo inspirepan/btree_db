@@ -1,7 +1,7 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import btree4j.BTree;
 import btree4j.BTreeException;
+import btree4j.BTreeIndex;
 
 import java.io.File;
 import java.util.HashMap;
@@ -10,7 +10,7 @@ import java.util.Map;
 public class BtreeDb {
 
     private final File dirFile;
-    private final Map<String, BTree> bTreeMap = new HashMap<>();
+    private final Map<String, BTreeIndex> bTreeMap = new HashMap<>();
 
 
     BtreeDb(String dirPath1) {
@@ -26,7 +26,7 @@ public class BtreeDb {
         }
     }
 
-    public Map<String, BTree> getBtreeMap() {
+    public Map<String, BTreeIndex> getBtreeMap() {
         return this.bTreeMap;
     }
 
@@ -43,8 +43,7 @@ public class BtreeDb {
         File[] files = dir.listFiles();
         for (File file : files) {
             String column = file.getName();
-            System.out.println("recovering " + column);
-            BTree bTree = new BTree(file);
+            BTreeIndex bTree = new BTreeIndex(file,false);
             bTree.init(false);
             bTreeMap.put(column, bTree);
         }

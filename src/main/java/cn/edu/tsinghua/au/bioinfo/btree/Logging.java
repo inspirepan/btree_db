@@ -1,6 +1,5 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;
@@ -13,12 +12,11 @@ import org.apache.commons.logging.Log;
 @Aspect
 @Component
 public class Logging {
-    Log log = LogFactory.getLog(Logging.class);
+    final Log log = LogFactory.getLog(Logging.class);
 
     @Before("@annotation(loggingPoint)")
     public void mysqlLogging(LoggingPoint loggingPoint) {
         log.error("[mysql] " + loggingPoint.value());
         System.out.println("[mysql] " + loggingPoint.value());
     }
-
 }

@@ -1,12 +1,12 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import btree4j.BTree;
 import btree4j.BTreeException;
+import btree4j.BTreeIndex;
 
 public class SingleBtreeFlusher implements Runnable {
-    private BTree bTree;
+    private final BTreeIndex bTree;
 
-    public SingleBtreeFlusher(BTree bTree) {
+    public SingleBtreeFlusher(BTreeIndex bTree) {
         this.bTree = bTree;
 
     }
@@ -14,7 +14,8 @@ public class SingleBtreeFlusher implements Runnable {
     @Override
     public void run() {
         try {
-            bTree.flush();
+            // clear设置为true，清空缓存
+            bTree.flush(true,true);
         } catch (BTreeException e) {
             e.printStackTrace();
         }

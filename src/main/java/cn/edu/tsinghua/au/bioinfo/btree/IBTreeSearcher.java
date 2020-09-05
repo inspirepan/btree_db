@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-public interface IBTreeSearcher {
+public interface IBTreeSearcher{
 
     void close() throws BTreeException, InterruptedException;
 
