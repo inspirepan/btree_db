@@ -9,10 +9,10 @@ import java.util.Set;
 
 public class SingleBtreeCallback implements BTreeCallback {
 
-    public Set<Long> idSet;
+    final public Set<Long> idSet;
 
     public SingleBtreeCallback() {
-        this.idSet = new HashSet<Long>();
+        this.idSet = new HashSet<>();
     }
 
     @Override

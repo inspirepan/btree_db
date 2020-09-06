@@ -1,5 +1,6 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
+import org.apache.commons.logging.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -13,11 +14,13 @@ import java.util.*;
 @Component
 public class MysqlDb {
 
+    final Log log;
+
     final JdbcTemplate jdbcTemplate;
 
-
-    public MysqlDb(@Autowired JdbcTemplate jdbcT) {
+    public MysqlDb(@Autowired JdbcTemplate jdbcT, @Autowired Log log) {
         this.jdbcTemplate = jdbcT;
+        this.log = log;
     }
 
     /**
@@ -45,13 +48,16 @@ public class MysqlDb {
         String sql = "SELECT * FROM hcaddb.new_table LIMIT 5 OFFSET 0";
         jdbcTemplate.query(sql,
                 rs -> {
+                    // 获取总列数
                     int count = rs.getMetaData().getColumnCount();
                     System.out.println("-".repeat(count * 14));
+                    // 输出表头
                     for (int i = 1; i <= count; i++) {
                         System.out.format("%-14s", rs.getMetaData().getColumnName(i));
                     }
                     System.out.println();
-                    while (rs.next()) {
+                    int maxRow = 5;
+                    while (rs.next() && maxRow-- > 0) {
                         for (int i = 1; i <= count; i++) {
                             System.out.format("%-14s", rs.getString(i));
                         }
@@ -93,6 +99,7 @@ public class MysqlDb {
                     ps -> ps.setLong(1, cellid),
                     rs -> {
                         // 查看当前行是否匹配所有值
+                        // TODO 检查列名是否有效，不然会报错
                         boolean match = true;
                         for (int i = 0; i < Math.min(columnNames.length, columnValues.length); i++) {
                             if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
@@ -126,7 +133,6 @@ public class MysqlDb {
         return containsId((long) cellid);
     }
 
-
     /**
      * 设值函数，如果cellid不存在，就不进行任何操作
      *
@@ -149,9 +155,8 @@ public class MysqlDb {
         return setRow((long) cellid, columnNames, columnValues);
     }
 
-
     /**
-     * updateRow和addRow的实现函数，为了在LogPoint中区分，从updateRow中拆分出来并设为private。
+     * updateRow和addRow的实现函数，为了在LoggingPoint中区分，从updateRow中拆分出来并设为private。
      *
      * @param cellid       行编号
      * @param columnNames  列名
@@ -184,9 +189,8 @@ public class MysqlDb {
         return result != null && result;
     }
 
-
     /**
-     * 添加行
+     * 添加行，使用long类型的cellid
      *
      * @param cellid       行编号
      * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
@@ -218,12 +222,17 @@ public class MysqlDb {
         }
     }
 
+    /**
+     * 添加行，使用int类型的cellid
+     *
+     * @param cellid       行编号
+     * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
+     * @param columnValues 对应列值
+     */
     @LoggingPoint("addRow")
     public void addRow(int cellid,
                        String[] columnNames,
                        List<Object> columnValues) {
         addRow((long) cellid, columnNames, columnValues);
     }
-
-
 }

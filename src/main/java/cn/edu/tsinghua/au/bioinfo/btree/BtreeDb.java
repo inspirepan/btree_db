@@ -12,7 +12,6 @@ public class BtreeDb {
     private final File dirFile;
     private final Map<String, BTreeIndex> bTreeMap = new HashMap<>();
 
-
     BtreeDb(String dirPath1) {
         dirFile = new File(dirPath1);
         if (dirFile.exists()) {
@@ -22,7 +21,9 @@ public class BtreeDb {
                 e.printStackTrace();
             }
         } else {
-            dirFile.mkdirs();
+            if (!dirFile.mkdirs()){
+                System.out.println("mkdir failed");
+            }
         }
     }
 
@@ -30,7 +31,7 @@ public class BtreeDb {
         return this.bTreeMap;
     }
 
-    public File getDirFile(){
+    public File getDirFile() {
         return this.dirFile;
     }
 
@@ -43,7 +44,7 @@ public class BtreeDb {
         File[] files = dir.listFiles();
         for (File file : files) {
             String column = file.getName();
-            BTreeIndex bTree = new BTreeIndex(file,false);
+            BTreeIndex bTree = new BTreeIndex(file, false);
             bTree.init(false);
             bTreeMap.put(column, bTree);
         }

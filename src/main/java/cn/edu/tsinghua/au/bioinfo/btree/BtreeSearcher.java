@@ -4,6 +4,7 @@ import btree4j.BTreeException;
 import btree4j.BTreeIndex;
 import btree4j.Value;
 import btree4j.indexer.BasicIndexQuery;
+import org.apache.commons.logging.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,10 +20,12 @@ public class BtreeSearcher implements IBTreeSearcher {
 
     private final File dirFile;
     private final Map<String, BTreeIndex> map;
+    private final Log log;
 
-    public BtreeSearcher(@Autowired BtreeDb bTreeDb) {
+    public BtreeSearcher(@Autowired BtreeDb bTreeDb, @Autowired Log log) {
         this.map = bTreeDb.getBtreeMap();
         this.dirFile = bTreeDb.getDirFile();
+        this.log = log;
     }
 
     /**
@@ -50,10 +53,15 @@ public class BtreeSearcher implements IBTreeSearcher {
      */
     @Override
     public void addColumn(String column) throws BTreeException {
+        if (map.containsKey(column)) {
+            // TODO 不允许有重复的列名
+        }
+
         File file = new File(dirFile, column);
         BTreeIndex bTree = new BTreeIndex(file);
         bTree.init(false);
         map.put(column, bTree);
+//        System.out.println(map);
     }
 
     /**
@@ -61,7 +69,9 @@ public class BtreeSearcher implements IBTreeSearcher {
      */
     @Override
     public List<String> getColumnInfo() {
-        return new ArrayList<>(map.keySet());
+        List<String> columnInfo = new ArrayList<>(map.keySet());
+        System.out.println("ColumnInfo " + columnInfo.toString());
+        return columnInfo;
     }
 
     /**
