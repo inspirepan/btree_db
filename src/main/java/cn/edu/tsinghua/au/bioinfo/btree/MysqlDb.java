@@ -6,7 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.ResultSetMetaData;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,27 +49,26 @@ public class MysqlDb {
     /**
      * 打印出前5行的所有内容
      */
-    @LoggingPoint("head")
     public void head() {
         String sql = "SELECT * FROM hcaddb.new_table LIMIT 5 OFFSET 0";
         jdbcTemplate.query(sql,
                 rs -> {
                     // 获取总列数
                     int count = rs.getMetaData().getColumnCount();
-                    System.out.println("-".repeat(count * 14));
+                    System.out.println("-".repeat(count * 12));
                     // 输出表头
                     for (int i = 1; i <= count; i++) {
-                        System.out.format("%-14s", rs.getMetaData().getColumnName(i));
+                        System.out.format("%-11s ", rs.getMetaData().getColumnName(i));
                     }
                     System.out.println();
                     int maxRow = 5;
                     while (rs.next() && maxRow-- > 0) {
                         for (int i = 1; i <= count; i++) {
-                            System.out.format("%-14s", rs.getString(i));
+                            System.out.format("%-11s ", rs.getString(i));
                         }
                         System.out.println();
                     }
-                    System.out.println("-".repeat(count * 14));
+                    System.out.println("-".repeat(count * 12));
                     return null;
                 });
     }
@@ -93,11 +92,13 @@ public class MysqlDb {
      * @param columnValues 列值
      * @return 所有匹配的id组成的Set
      */
-    @LoggingPoint("queryByStringEqual")
     public Set<Long> queryByStringEqual(String[] columnNames,
                                         String[] columnValues,
                                         Set<Long> candidate) {
         Set<Long> result = new HashSet<>();
+        if (!containsColumnName(columnNames)) {
+            return result;
+        }
         candidate.forEach(cellid ->
         {
             String sql = "SELECT * FROM hcaddb.new_table WHERE cellid = ?";
@@ -106,16 +107,10 @@ public class MysqlDb {
                     rs -> {
                         // 查看当前行是否匹配所有值
                         boolean match = true;
-                        for (int i = 0; i < Math.min(columnNames.length, columnValues.length); i++) {
-                            try {
-                                if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
-                                    match = false;
-                                    break;
-                                }
-                            } catch (SQLException e) {
-                                // 列名不存在
+                        int i = 0;
+                        for (; i < Math.min(columnNames.length, columnValues.length); i++) {
+                            if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
                                 match = false;
-                                log.error("columnName: ".concat(columnNames[i]).concat(" is not valid"));
                                 break;
                             }
                         }
@@ -126,6 +121,39 @@ public class MysqlDb {
                     });
         });
         return result;
+    }
+
+    /**
+     * 检查ColumnName是否在数据库中存在
+     */
+    private boolean containsColumnName(String columnName) {
+        return containsColumnName(new String[]{columnName});
+    }
+
+    /**
+     * 检查多个ColumnName是否在数据库中存在
+     *
+     * @param columnNames String[]形式的名称
+     * @return 若有不存在的ColumnName返回false
+     */
+    private boolean containsColumnName(String[] columnNames) {
+        Set<String> columnNameSet = new HashSet<>();
+        String sql = "SELECT * FROM hcaddb.new_table LIMIT 1 OFFSET 0";
+        jdbcTemplate.query(sql, rs -> {
+            ResultSetMetaData rsmd = rs.getMetaData();
+            int count = rsmd.getColumnCount();
+            for (int i = 1; i <= count; i++) {
+                columnNameSet.add(rsmd.getColumnName(i));
+            }
+            return null;
+        });
+        for (String columnName : columnNames) {
+            if (!columnNameSet.contains(columnName)) {
+                log.error("columnName {} is not valid", columnName);
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -140,7 +168,6 @@ public class MysqlDb {
         return lineNum != null && (lineNum == 1);
     }
 
-    @LoggingPoint("containsId")
     public boolean containsId(int cellid) {
         return containsId((long) cellid);
     }
@@ -188,14 +215,12 @@ public class MysqlDb {
      * @param columnValues 对应列值
      * @return 成功则返回true，如果cellid不存在，返回false
      */
-    @LoggingPoint("updateRow")
     public boolean updateRow(Long cellid,
                              String[] columnNames,
                              List<Object> columnValues) {
         return setRow(cellid, columnNames, columnValues);
     }
 
-    @LoggingPoint("updateRow")
     public boolean updateRow(int cellid,
                              String[] columnNames,
                              List<Object> columnValues) {
@@ -209,7 +234,6 @@ public class MysqlDb {
      * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
      * @param columnValues 对应列值
      */
-    @LoggingPoint("addRow")
     public void addRow(Long cellid,
                        String[] columnNames,
                        List<Object> columnValues) {
@@ -242,23 +266,21 @@ public class MysqlDb {
      * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
      * @param columnValues 对应列值
      */
-    @LoggingPoint("addRow")
     public void addRow(int cellid,
                        String[] columnNames,
                        List<Object> columnValues) {
         addRow((long) cellid, columnNames, columnValues);
     }
 
-    @LoggingPoint("removeRow")
     public void removeRow(int cellid) {
         if (!containsId(cellid)) {
-            log.error("row " + cellid + " not exists");
+            log.error("remove failed, row {} not exists", cellid);
             return;
         }
         String sql = "DELETE FROM hcaddb.new_table WHERE cellid=?";
         if (1 != jdbcTemplate.update(sql, ps -> ps.setInt(cellid, 1))) {
-            log.error("remove row failed");
+            log.error("remove failed");
         }
-        log.info("remove row " + cellid);
+        log.info("removed row {}", cellid);
     }
 }
