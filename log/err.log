@@ -1,0 +1,14 @@
+09-06 21:20:50 ERROR columnName 12 is not valid 
+09-06 21:20:50 ERROR remove failed, row 44 not exists 
+09-06 21:25:07 ERROR columnName 12 is not valid. 
+09-06 21:25:07 ERROR remove failed, row 44 doesn't exists. 
+09-06 21:25:46 ERROR columnName 12 is not valid. 
+09-06 21:25:46 ERROR remove failed, row 44 doesn't exists. 
+09-06 21:53:58 ERROR columnName 12 is not valid. 
+09-06 21:53:58 ERROR remove failed, row 44 doesn't exists. 
+09-06 22:06:23 ERROR columnName 12 is not valid. 
+09-06 22:06:23 ERROR remove failed, row 44 doesn't exists. 
+09-06 22:41:20 ERROR trying to add column label4 which already exits 
+09-06 22:46:08 ERROR trying to add column label4 which already exits 
+09-06 22:47:52 ERROR trying to add column label4 which already exits 
+09-06 22:48:04 ERROR trying to add column label4 which already exits 

@@ -50,8 +50,8 @@ public class AppConfig {
     }
 
     @Bean
-    public BtreeDb createBtree() {
-        return new BtreeDb(dirPath);
+    public BtreeInitializer createBtree() {
+        return new BtreeInitializer(dirPath);
     }
 
     @Bean

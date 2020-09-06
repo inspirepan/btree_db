@@ -16,21 +16,18 @@ import java.util.concurrent.*;
  * @author panjx
  */
 @Component
-public class BtreeSearcher implements IBTreeSearcher {
+public class BtreeSearcher implements IBtreeSearcher {
 
     private final File dirFile;
     private final Map<String, BTreeIndex> map;
     private final Logger log;
 
-    public BtreeSearcher(@Autowired BtreeDb bTreeDb, @Autowired Logger log) {
-        this.map = bTreeDb.getBtreeMap();
-        this.dirFile = bTreeDb.getDirFile();
+    public BtreeSearcher(@Autowired BtreeInitializer bTreeInitializer, @Autowired Logger log) {
+        this.map = bTreeInitializer.getBtreeMap();
+        this.dirFile = bTreeInitializer.getDirFile();
         this.log = log;
     }
 
-    /**
-     * 关闭所有BTree
-     */
     @Override
     public void close() throws InterruptedException {
         ExecutorService es = new ThreadPoolExecutor(5, 10,
@@ -46,44 +43,31 @@ public class BtreeSearcher implements IBTreeSearcher {
         es.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    /**
-     * 添加一个column
-     *
-     * @param column 为dirFile路径下，需要添加的Btree文件名
-     */
     @Override
+    @BtreeLoggingPoint("addColumn")
     public void addColumn(String column) throws BTreeException {
         if (map.containsKey(column)) {
-            // TODO 不允许有重复的列名
+            log.error("trying to add column {} which already exits", column);
+            return;
         }
-
         File file = new File(dirFile, column);
         BTreeIndex bTree = new BTreeIndex(file);
         bTree.init(false);
         map.put(column, bTree);
-//        System.out.println(map);
     }
 
-    /**
-     * 返回所有Column的名称列表
-     */
     @Override
     public List<String> getColumnInfo() {
         List<String> columnInfo = new ArrayList<>(map.keySet());
-        log.warn("ColumnInfo " + columnInfo.toString());
+        log.info("column names " + columnInfo.toString());
         return columnInfo;
     }
 
-    /**
-     * 添加一行数据
-     *
-     * @param id      即对应的行
-     * @param columns 数据对应的几列，即单独的BTree
-     * @param values  数据，与columns一一对应
-     * @param len     数据长度
-     */
     @Override
+    @BtreeLoggingPoint("insertId")
     public void insert(long id, String[] columns, double[] values, int len) throws InterruptedException {
+        // TODO 检查id是否存在否则update
+        // TODO 检查len有效性
         ExecutorService executorService = new ThreadPoolExecutor(5, 10,
                 1L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(5),
@@ -91,6 +75,7 @@ public class BtreeSearcher implements IBTreeSearcher {
                 new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < len; i++) {
             if (!map.containsKey(columns[i])) {
+                // TODO 抛异常
                 continue;
             }
             BTreeIndex bTree = map.get(columns[i]);
@@ -101,10 +86,7 @@ public class BtreeSearcher implements IBTreeSearcher {
         executorService.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    /**
-     * 将缓存写入文件中
-     * 同时清空缓存
-     */
+    @Override
     public void flush() throws InterruptedException {
         ExecutorService executorService = new ThreadPoolExecutor(2, 5,
                 1L, TimeUnit.SECONDS,
@@ -119,34 +101,20 @@ public class BtreeSearcher implements IBTreeSearcher {
         executorService.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    /**
-     * 搜索全部ID
-     *
-     * @param columns    指定若干个BTree
-     * @param conditions 与上述BTree一一对应的条件
-     * @param len        指定的BTree的数量
-     * @return 返回满足所有条件的ID
-     */
     @Override
+    @BtreeLoggingPoint("rangeSearch")
     public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len)
             throws ExecutionException, InterruptedException, BTreeException {
         Set<Long> resultSet = new HashSet<>();
         return rangeSearch(columns, conditions, len, resultSet);
     }
 
-    /**
-     * 搜索指定ID
-     *
-     * @param columns    指定若干个BTree
-     * @param conditions 与上述BTree一一对应的条件
-     * @param len        指定的BTree的数量
-     * @param candidates 指定的ID
-     * @return 返回满足所有条件的ID
-     */
     @Override
     @SuppressWarnings("unchecked")
+    @BtreeLoggingPoint("rangeSearch")
     public Set<Long> rangeSearch(String[] columns, BasicIndexQuery[] conditions, int len, Set<Long> candidates)
             throws ExecutionException, InterruptedException, BTreeException {
+        // TODO 检查len有效性
         Future<Set<Long>>[] futures = new Future[len];
         ExecutorService executorService = new ThreadPoolExecutor(2, 5,
                 1L, TimeUnit.SECONDS,
@@ -156,6 +124,7 @@ public class BtreeSearcher implements IBTreeSearcher {
         for (int i = 0; i < len; i++) {
             BTreeIndex bTree = map.get(columns[i]);
             if (bTree == null) {
+                // TODO 列名不存在，报错
                 throw new BTreeException();
             }
             SingleBtreeSearcher singleSearcher = new SingleBtreeSearcher(bTree, conditions[i]);
@@ -175,32 +144,23 @@ public class BtreeSearcher implements IBTreeSearcher {
         return candidates;
     }
 
-    /**
-     * 按ID删除行
-     *
-     * @param id 指定的ID
-     */
     @Override
+    @BtreeLoggingPoint("deleteId")
     public void delete(long id) throws BTreeException {
         for (BTreeIndex bTree : map.values()) {
             bTree.remove(new Value(id));
         }
     }
 
-    /**
-     * 更新指定行列的数据
-     *
-     * @param id         指定ID（行）
-     * @param columnName 指定BTree（列）
-     * @param newV       新的值
-     */
-
     @Override
+    @BtreeLoggingPoint("updateId")
     public void update(long id, String columnName, double newV) throws BTreeException {
-        BTreeIndex bTree = map.get(columnName);
-        if (bTree == null) {
-            throw new BTreeException("No such column.");
+        // TODO 列名不存在报错
+        if (!map.containsKey(columnName)) {
+            log.error("column {} not found.", columnName);
+            return;
         }
+        BTreeIndex bTree = map.get(columnName);
         bTree.remove(new Value(id));
         bTree.addValue(new Value((long) newV), id);
     }

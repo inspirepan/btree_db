@@ -18,7 +18,6 @@ import java.util.Set;
 public class MysqlDb {
 
     final Logger log;
-
     final JdbcTemplate jdbcTemplate;
 
     public MysqlDb(@Autowired JdbcTemplate jdbcT, @Autowired Logger log) {
@@ -80,6 +79,7 @@ public class MysqlDb {
      * @param columnValues 列值
      * @return 所有匹配的id组成的Set
      */
+    @MysqlLoggingPoint("queryByStringEqual")
     public Set<Long> queryByStringEqual(String[] columnNames,
                                         String[] columnValues) {
         return queryByStringEqual(columnNames, columnValues, getAllIds());
@@ -92,6 +92,7 @@ public class MysqlDb {
      * @param columnValues 列值
      * @return 所有匹配的id组成的Set
      */
+    @MysqlLoggingPoint("queryByStringEqual")
     public Set<Long> queryByStringEqual(String[] columnNames,
                                         String[] columnValues,
                                         Set<Long> candidate) {
@@ -149,7 +150,7 @@ public class MysqlDb {
         });
         for (String columnName : columnNames) {
             if (!columnNameSet.contains(columnName)) {
-                log.error("columnName {} is not valid", columnName);
+                log.error("columnName {} is not valid.", columnName);
                 return false;
             }
         }
@@ -215,12 +216,14 @@ public class MysqlDb {
      * @param columnValues 对应列值
      * @return 成功则返回true，如果cellid不存在，返回false
      */
+    @MysqlLoggingPoint("updateRow")
     public boolean updateRow(Long cellid,
                              String[] columnNames,
                              List<Object> columnValues) {
         return setRow(cellid, columnNames, columnValues);
     }
 
+    @MysqlLoggingPoint("updateRow")
     public boolean updateRow(int cellid,
                              String[] columnNames,
                              List<Object> columnValues) {
@@ -234,9 +237,14 @@ public class MysqlDb {
      * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
      * @param columnValues 对应列值
      */
+    @MysqlLoggingPoint("addRow")
     public void addRow(Long cellid,
                        String[] columnNames,
                        List<Object> columnValues) {
+        if (!containsColumnName(columnNames)) {
+            log.error("add column first");
+            return;
+        }
         if (containsId(cellid)) {
             setRow(cellid, columnNames, columnValues);
         } else {
@@ -266,21 +274,23 @@ public class MysqlDb {
      * @param columnNames  列名，支持只选择部分列,这样的话其他列会设为默认值或者null
      * @param columnValues 对应列值
      */
+    @MysqlLoggingPoint("addRow")
     public void addRow(int cellid,
                        String[] columnNames,
                        List<Object> columnValues) {
         addRow((long) cellid, columnNames, columnValues);
     }
 
+    @MysqlLoggingPoint("removeRow")
     public void removeRow(int cellid) {
         if (!containsId(cellid)) {
-            log.error("remove failed, row {} not exists", cellid);
+            log.error("remove failed, row {} doesn't exists.", cellid);
             return;
         }
         String sql = "DELETE FROM hcaddb.new_table WHERE cellid=?";
         if (1 != jdbcTemplate.update(sql, ps -> ps.setInt(cellid, 1))) {
-            log.error("remove failed");
+            log.error("remove failed.");
         }
-        log.info("removed row {}", cellid);
+        log.info("removed row {}.", cellid);
     }
 }

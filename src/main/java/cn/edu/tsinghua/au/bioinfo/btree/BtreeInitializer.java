@@ -7,12 +7,12 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-public class BtreeDb {
+public class BtreeInitializer {
 
     private final File dirFile;
     private final Map<String, BTreeIndex> bTreeMap = new HashMap<>();
 
-    BtreeDb(String dirPath1) {
+    BtreeInitializer(String dirPath1) {
         dirFile = new File(dirPath1);
         if (dirFile.exists()) {
             try {

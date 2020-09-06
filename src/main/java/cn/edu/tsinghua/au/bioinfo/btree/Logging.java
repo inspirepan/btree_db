@@ -18,8 +18,13 @@ public class Logging {
         this.log = log;
     }
 
-    @Before("@annotation(loggingPoint)")
-    public void mysqlLogging(LoggingPoint loggingPoint) {
-        log.info(loggingPoint.value());
+    @Before("@annotation(mysqlLoggingPoint)")
+    public void mysqlLogging(MysqlLoggingPoint mysqlLoggingPoint) {
+        log.info("MySQL: trying to {}.", mysqlLoggingPoint.value());
+    }
+
+    @Before("@annotation(btreeLoggingPoint)")
+    public void mysqlLogging(BtreeLoggingPoint btreeLoggingPoint) {
+        log.info("B+Tree: trying to {}.", btreeLoggingPoint.value());
     }
 }
