@@ -7,6 +7,9 @@ import btree4j.indexer.BasicIndexQuery;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+/**
+ * @author panjx
+ */
 public class SingleBtreeSearcher implements Callable<Set<Long>> {
     private final BTreeIndex bTree;
     private final BasicIndexQuery condition;

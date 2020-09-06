@@ -3,6 +3,9 @@ package cn.edu.tsinghua.au.bioinfo.btree;
 import btree4j.BTreeException;
 import btree4j.BTreeIndex;
 
+/**
+ * @author panjx
+ */
 public class SingleBtreeFlusher implements Runnable {
     private final BTreeIndex bTree;
 

@@ -1,12 +1,15 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import org.apache.commons.logging.Log;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author panjx
@@ -14,11 +17,11 @@ import java.util.*;
 @Component
 public class MysqlDb {
 
-    final Log log;
+    final Logger log;
 
     final JdbcTemplate jdbcTemplate;
 
-    public MysqlDb(@Autowired JdbcTemplate jdbcT, @Autowired Log log) {
+    public MysqlDb(@Autowired JdbcTemplate jdbcT, @Autowired Logger log) {
         this.jdbcTemplate = jdbcT;
         this.log = log;
     }
@@ -30,10 +33,13 @@ public class MysqlDb {
      */
     public Set<Long> getAllIds() {
         String sql = "SELECT cellid FROM hcaddb.new_table";
-        var rows = jdbcTemplate.queryForList(sql, Long.TYPE);
+        List<Long> rows = jdbcTemplate.queryForList(sql, Long.TYPE);
         return new HashSet<>(rows);
     }
 
+    /**
+     * @return 返回所有id中最大的一个
+     */
     public Long getBiggestId() {
         String sql = "SELECT cellid FROM hcaddb.new_table ORDER BY cellid DESC LIMIT 1 OFFSET 0";
         return jdbcTemplate.queryForObject(sql,
@@ -99,14 +105,21 @@ public class MysqlDb {
                     ps -> ps.setLong(1, cellid),
                     rs -> {
                         // 查看当前行是否匹配所有值
-                        // TODO 检查列名是否有效，不然会报错
                         boolean match = true;
                         for (int i = 0; i < Math.min(columnNames.length, columnValues.length); i++) {
-                            if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
+                            try {
+                                if (!columnValues[i].equals(rs.getString(columnNames[i]))) {
+                                    match = false;
+                                    break;
+                                }
+                            } catch (SQLException e) {
+                                // 列名不存在
                                 match = false;
+                                log.error("columnName: ".concat(columnNames[i]).concat(" is not valid"));
                                 break;
                             }
                         }
+                        // 所有列值都匹配
                         if (match) {
                             result.add(cellid);
                         }
@@ -121,8 +134,7 @@ public class MysqlDb {
      * @param cellid 查询的cellid
      * @return 是否包含
      */
-    @LoggingPoint("containsId")
-    public boolean containsId(Long cellid) {
+    private boolean containsId(Long cellid) {
         String sql = "SELECT COUNT(*) FROM hcaddb.new_table WHERE cellid = ?";
         Long lineNum = jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getLong(1), cellid);
         return lineNum != null && (lineNum == 1);
@@ -134,29 +146,8 @@ public class MysqlDb {
     }
 
     /**
-     * 设值函数，如果cellid不存在，就不进行任何操作
-     *
-     * @param cellid       行编号
-     * @param columnNames  列名，支持只选择部分列
-     * @param columnValues 对应列值
-     * @return 成功则返回true，如果cellid不存在，返回false
-     */
-    @LoggingPoint("updateRow")
-    public boolean updateRow(Long cellid,
-                             String[] columnNames,
-                             List<Object> columnValues) {
-        return setRow(cellid, columnNames, columnValues);
-    }
-
-    @LoggingPoint("updateRow")
-    public boolean updateRow(int cellid,
-                             String[] columnNames,
-                             List<Object> columnValues) {
-        return setRow((long) cellid, columnNames, columnValues);
-    }
-
-    /**
-     * updateRow和addRow的实现函数，为了在LoggingPoint中区分，从updateRow中拆分出来并设为private。
+     * 对指定的行赋值
+     * updateRow()和addRow()的实现函数
      *
      * @param cellid       行编号
      * @param columnNames  列名
@@ -187,6 +178,28 @@ public class MysqlDb {
                 }
         );
         return result != null && result;
+    }
+
+    /**
+     * 设值函数，如果cellid不存在，就不进行任何操作
+     *
+     * @param cellid       行编号
+     * @param columnNames  列名，支持只选择部分列
+     * @param columnValues 对应列值
+     * @return 成功则返回true，如果cellid不存在，返回false
+     */
+    @LoggingPoint("updateRow")
+    public boolean updateRow(Long cellid,
+                             String[] columnNames,
+                             List<Object> columnValues) {
+        return setRow(cellid, columnNames, columnValues);
+    }
+
+    @LoggingPoint("updateRow")
+    public boolean updateRow(int cellid,
+                             String[] columnNames,
+                             List<Object> columnValues) {
+        return setRow((long) cellid, columnNames, columnValues);
     }
 
     /**
@@ -234,5 +247,18 @@ public class MysqlDb {
                        String[] columnNames,
                        List<Object> columnValues) {
         addRow((long) cellid, columnNames, columnValues);
+    }
+
+    @LoggingPoint("removeRow")
+    public void removeRow(int cellid) {
+        if (!containsId(cellid)) {
+            log.error("row " + cellid + " not exists");
+            return;
+        }
+        String sql = "DELETE FROM hcaddb.new_table WHERE cellid=?";
+        if (1 != jdbcTemplate.update(sql, ps -> ps.setInt(cellid, 1))) {
+            log.error("remove row failed");
+        }
+        log.info("remove row " + cellid);
     }
 }

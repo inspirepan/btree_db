@@ -7,6 +7,9 @@ import btree4j.utils.lang.Primitives;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * @author panjx
+ */
 public class SingleBtreeCallback implements BTreeCallback {
 
     final public Set<Long> idSet;

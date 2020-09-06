@@ -1,6 +1,6 @@
 package cn.edu.tsinghua.au.bioinfo.btree;
 
-import org.apache.commons.logging.Log;
+import org.slf4j.Logger;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,15 +12,14 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 public class Logging {
-    final Log log;
+    final Logger log;
 
-    public Logging(@Autowired Log log) {
+    public Logging(@Autowired Logger log) {
         this.log = log;
     }
 
     @Before("@annotation(loggingPoint)")
     public void mysqlLogging(LoggingPoint loggingPoint) {
-        log.error("[mysql] " + loggingPoint.value());
-        System.out.println("[mysql] " + loggingPoint.value());
+        log.info(loggingPoint.value());
     }
 }

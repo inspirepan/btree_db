@@ -14,7 +14,9 @@ public class AppConfigTest extends TestCase {
                 new String[]{"label1", "label2", "label3", "label4"}, List.of("K cell", "CD12+", "x cell", "2", "34"));
         mysqlDb.head();
         System.out.println("mysqlDb.getBiggestId() = " + mysqlDb.getBiggestId());
-        System.out.println("mysqlDb.getAllIds() = " + mysqlDb.getAllIds());
+//        System.out.println("mysqlDb.getAllIds() = " + mysqlDb.getAllIds());
+        System.out.println(mysqlDb.queryByStringEqual(new String[]{"laefs2"},new String[]{"CD19+"}));
+        mysqlDb.removeRow(44);
         context.close();
     }
 

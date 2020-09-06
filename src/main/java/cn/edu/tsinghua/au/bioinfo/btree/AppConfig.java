@@ -2,8 +2,8 @@ package cn.edu.tsinghua.au.bioinfo.btree;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
@@ -45,17 +45,17 @@ public class AppConfig {
     }
 
     @Bean
-    JdbcTemplate createJdbcTemplate(@Autowired DataSource dataSource) {
+    public JdbcTemplate createJdbcTemplate(@Autowired DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     @Bean
-    BtreeDb createBtree() {
+    public BtreeDb createBtree() {
         return new BtreeDb(dirPath);
     }
 
     @Bean
-    Log getLog() {
-        return LogFactory.getLog(getClass());
+    public static Logger getLog() {
+        return LoggerFactory.getLogger(AppConfig.class);
     }
 }

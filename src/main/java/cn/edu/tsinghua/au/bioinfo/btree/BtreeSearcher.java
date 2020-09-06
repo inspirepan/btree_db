@@ -4,7 +4,7 @@ import btree4j.BTreeException;
 import btree4j.BTreeIndex;
 import btree4j.Value;
 import btree4j.indexer.BasicIndexQuery;
-import org.apache.commons.logging.Log;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +20,9 @@ public class BtreeSearcher implements IBTreeSearcher {
 
     private final File dirFile;
     private final Map<String, BTreeIndex> map;
-    private final Log log;
+    private final Logger log;
 
-    public BtreeSearcher(@Autowired BtreeDb bTreeDb, @Autowired Log log) {
+    public BtreeSearcher(@Autowired BtreeDb bTreeDb, @Autowired Logger log) {
         this.map = bTreeDb.getBtreeMap();
         this.dirFile = bTreeDb.getDirFile();
         this.log = log;
@@ -70,7 +70,7 @@ public class BtreeSearcher implements IBTreeSearcher {
     @Override
     public List<String> getColumnInfo() {
         List<String> columnInfo = new ArrayList<>(map.keySet());
-        System.out.println("ColumnInfo " + columnInfo.toString());
+        log.warn("ColumnInfo " + columnInfo.toString());
         return columnInfo;
     }
 
